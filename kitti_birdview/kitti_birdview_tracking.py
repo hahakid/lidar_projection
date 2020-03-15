@@ -30,6 +30,7 @@ class Object3d(object):
     """ 3d object label for tracking"""
     def __init__(self, label_file_line):
         data = label_file_line.split(" ")
+        self.trackID=data[1]#0-frameID 1-trackID
         data[3:] = [float(x) for x in data[3:]]
         # extract label, truncation, occlusion
         self.type = data[2]  # 'Car', 'Pedestrian', ...
@@ -53,6 +54,9 @@ class Object3d(object):
         self.t = (data[13], data[14], data[15])  # location (x,y,z) in camera coord.
         self.ry = data[16]  # yaw angle (around Y-axis in camera coordinates) [-pi..pi]
 
+    def getID(self):
+        return self.trackID
+
 def inverse_rigid_trans(Tr):
     """ Inverse a rigid body transform matrix (3x4 as [R|t])
         [R'|-R't; 0|1]
@@ -61,6 +65,8 @@ def inverse_rigid_trans(Tr):
     inv_Tr[0:3, 0:3] = np.transpose(Tr[0:3, 0:3])
     inv_Tr[0:3, 3] = np.dot(-np.transpose(Tr[0:3, 0:3]), Tr[0:3, 3])
     return inv_Tr
+
+
 
 def read_label(lines):
     #lines = [line.rstrip() for line in open(label_filename)]
@@ -372,7 +378,7 @@ def draw_box3d_on_top(
     img = image.copy()
     num = len(boxes3d)
     startx = 5
-    fin_label=[]
+    fin_label=[]#输出label
     for n in range(num):
         b = boxes3d[n]
         x0 = b[0, 0]
@@ -397,10 +403,10 @@ def draw_box3d_on_top(
         cv2.line(img, (u1, v1), (u2, v2), color, thickness, cv2.LINE_AA)
         cv2.line(img, (u2, v2), (u3, v3), color, thickness, cv2.LINE_AA)
         cv2.line(img, (u3, v3), (u0, v0), color, thickness, cv2.LINE_AA)
-        fin_label.append(text_lables[n]+" "+str(u0)+" "+str(v0)+" "+str(u1)+" "+str(v1)+" "+str(u2)+" "+str(v2)+" "+str(u3)+" "+str(v3))
+        fin_label.append(text_lables[n][0]+" "+text_lables[n][1]+" "+str(u0)+" "+str(v0)+" "+str(u1)+" "+str(v1)+" "+str(u2)+" "+str(v2)+" "+str(u3)+" "+str(v3))
     for n in range(len(text_lables)):
         text_pos = (startx, 25 * (n + 1))
-        cv2.putText(img, text_lables[n], text_pos, font, 0.5, color, 0, cv2.LINE_AA)
+        cv2.putText(img, text_lables[n][0]+'(ID:'+text_lables[n][1]+')', text_pos, font, 0.5, color, 0, cv2.LINE_AA)
 
     return img,fin_label
 
@@ -489,7 +495,8 @@ def show_lidar_topview_with_boxes(pc_velo, objects, calib, objects_pred=None,is_
     boxes3d = [bbox3d(obj) for obj in objects if obj.type != "DontCare"]
     gt = np.array(boxes3d)
     # print("box2d BV:",boxes3d)
-    lines = [obj.type for obj in objects if obj.type != "DontCare"]
+    lines = [[obj.type,obj.trackID] for obj in objects if obj.type != "DontCare"]
+    IDs=[obj.trackID for obj in objects if obj.type != -1]
     top_image,pro_labels = draw_box3d_on_top(
         top_image, gt, text_lables=lines, scores=None, thickness=1, is_gt=True
     )
